@@ -18,7 +18,8 @@ jobs:
 
       - name: Extract project
         run: |
-          unzip -q BlackTigerBot_V1_Source.zip -d project
+          mkdir -p project
+          unzip -o BlackTigerBot_V1_Source.zip -d project
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -31,13 +32,28 @@ jobs:
         with:
           gradle-version: '8.9'
 
+      - name: Find Gradle project
+        id: find_project
+        run: |
+          SETTINGS=$(find project -type f -name settings.gradle.kts | head -n 1)
+
+          if [ -z "$SETTINGS" ]; then
+            echo "ERROR: settings.gradle.kts not found"
+            find project -maxdepth 5 -type f
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$SETTINGS")
+          echo "dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
+          echo "Found project: $PROJECT_DIR"
+
       - name: Build APK
         run: |
-          cd project
-          gradle assembleDebug
+          gradle -p "${{ steps.find_project.outputs.dir }}" assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: BlackTigerBot-APK
-          path: project/app/build/outputs/apk/debug/app-debug.apk
+          path: project/**/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
